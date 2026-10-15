@@ -1,0 +1,3 @@
+---
+# The key itself lives in vault.yml (ansible-vault) next to this file.
+machine_agent_access_key: "{{ vault_machine_agent_access_key }}"

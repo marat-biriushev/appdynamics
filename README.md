@@ -21,14 +21,25 @@ registered in the controller before moving to the next environment.
 
 2. Provide the access key for the environment (see below).
 
-3. Run, environment by environment:
+3. Run, environment by environment - one host first, then the rest:
 
    ```bash
-   ansible-playbook -i inventories/esb-dev.ini machine-agent.yml -k -K --check --diff
-   ansible-playbook -i inventories/esb-dev.ini machine-agent.yml -k -K
+   ansible-playbook -i inventories/esb-dev.ini machine-agent.yml -k -K --ask-vault-pass \
+     --limit accountdom-dev-srv01.ipa.ipotekabank.uz
+   ansible-playbook -i inventories/esb-dev.ini machine-agent.yml -k -K --ask-vault-pass
    ```
 
    Hosts must be in the `appdynamics` group.
+
+## Inventories
+
+| Inventory | Group | Vault file |
+|---|---|---|
+| `inventories/esb-dev.ini` | `esb_dev` | `inventories/group_vars/esb_dev/vault.yml` |
+
+Each environment group is a child of `appdynamics`. Its `vars.yml` maps
+`machine_agent_access_key` to `vault_machine_agent_access_key`, which
+lives in the vaulted `vault.yml` next to it.
 
 ## What it does
 
@@ -66,7 +77,7 @@ Keep it in `ansible-vault`, per environment group:
 
 ```bash
 ansible-vault create inventories/group_vars/esb_dev/vault.yml
-# machine_agent_access_key: "..."
+# vault_machine_agent_access_key: "..."
 ```
 
 Then add `--ask-vault-pass` (or `--vault-password-file`) to the run.
