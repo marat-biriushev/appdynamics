@@ -41,6 +41,32 @@
     create_home: false
     shell: /sbin/nologin
 
+# Docker Visibility only where Docker actually runs. With docker-enabled
+# on, the agent queries the Docker API at startup and exits if it cannot
+# reach the socket - on hosts without Docker it stays off.
+- name: Look for the Docker socket
+  ansible.builtin.stat:
+    path: "{{ machine_agent_docker_socket }}"
+  register: machine_agent_docker_sock
+
+- name: Decide whether Docker Visibility is on
+  ansible.builtin.set_fact:
+    machine_agent_docker_active: >-
+      {{ (machine_agent_docker_enabled | bool)
+         and machine_agent_docker_sock.stat.exists
+         and (machine_agent_docker_sock.stat.issock | default(false))
+         and machine_agent_docker_sock.stat.gr_name != 'root' }}
+
+# The socket is root:docker 0660. Membership in its group gives the
+# agent the Docker API - which is root-equivalent on the host.
+- name: Give the agent access to the Docker socket
+  ansible.builtin.user:
+    name: "{{ machine_agent_user }}"
+    groups: "{{ machine_agent_docker_sock.stat.gr_name }}"
+    append: true
+  when: machine_agent_docker_active | bool
+  notify: Restart machine agent
+
 - name: Create the base directory
   ansible.builtin.file:
     path: "{{ machine_agent_base_dir }}"
@@ -112,7 +138,7 @@
         state: link
         owner: root
         group: root
-      when: machine_agent_docker_enabled | bool
+      when: machine_agent_docker_active | bool
       notify: Restart machine agent
 
     # Mode 0640 - the file holds the access key. The bundle upgrade

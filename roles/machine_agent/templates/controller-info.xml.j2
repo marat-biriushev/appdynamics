@@ -8,5 +8,5 @@
     <account-access-key>{{ machine_agent_access_key }}</account-access-key>
     <unique-host-id>{{ machine_agent_unique_host_id }}</unique-host-id>
     <sim-enabled>{{ machine_agent_sim_enabled | bool | lower }}</sim-enabled>
-    <docker-enabled>{{ machine_agent_docker_enabled | bool | lower }}</docker-enabled>
+    <docker-enabled>{{ machine_agent_docker_active | bool | lower }}</docker-enabled>
 </controller-info>

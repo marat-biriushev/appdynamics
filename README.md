@@ -51,8 +51,8 @@ Mirrors the manual install from the ticket:
 3. creates `/opt/appdynamics/machine-agent` owned by `appdynamics`
 4. unpacks the bundle there and chowns it to `appdynamics:appdynamics`
 5. writes `conf/controller-info.xml` (mode `0640`, holds the access
-   key); `unique-host-id` is the server's `hostname` output, case kept,
-   and `docker-enabled` is on
+   key); `unique-host-id` is the server's `hostname` output, case kept;
+   `docker-enabled` is on only where Docker runs (see below)
 6. installs `/etc/systemd/system/appdynamics-machine-agent.service`
    from the unit shipped in the bundle, with these lines forced:
 
@@ -65,8 +65,8 @@ Mirrors the manual install from the ticket:
    `Group=` is set to `appdynamics` too if the unit has one. The rest of
    the unit is kept as shipped. The role fails if the shipped unit has
    no line to set.
-7. creates the `/hostroot -> /` symlink Docker Visibility reads the
-   host through (when `machine_agent_docker_enabled` is true)
+7. on hosts with `/var/run/docker.sock`: adds `appdynamics` to the
+   socket's group (`docker`) and creates the `/hostroot -> /` symlink
 8. `daemon-reload`, enables and starts `appdynamics-machine-agent`
 
 Changes to the bundle, `controller-info.xml` or the unit restart the
@@ -100,8 +100,25 @@ Then add `--ask-vault-pass` (or `--vault-password-file`) to the run.
 | `machine_agent_account_name` | `customer1` | |
 | `machine_agent_access_key` | `""` | **required**, vault |
 | `machine_agent_sim_enabled` | `true` | Server Visibility |
-| `machine_agent_docker_enabled` | `true` | Docker Visibility; also creates `/hostroot -> /` |
+| `machine_agent_docker_enabled` | `true` | Docker Visibility, on hosts where the socket exists |
+| `machine_agent_docker_socket` | `/var/run/docker.sock` | |
 | `machine_agent_unique_host_id` | `{{ ansible_facts['nodename'] }}` | same as `hostname`; not `ansible_hostname`, which drops the domain part |
+
+## Docker Visibility
+
+With `docker-enabled` on, the agent calls the Docker API (`/info`) at
+startup and exits with status 255 if it cannot - `SocketException:
+Permission denied` in `logs/machine-agent.log`. So the role turns it on
+per host:
+
+- socket present - `appdynamics` joins the socket's group, `/hostroot`
+  is created, `docker-enabled` is `true`
+- no socket - `docker-enabled` is `false`, nothing else changes
+
+Membership in the `docker` group is root-equivalent: anything running
+as `appdynamics` can start a privileged container. That is the access
+Docker Visibility needs; set `machine_agent_docker_enabled: false` to
+opt a host or group out.
 
 ## Upgrades
 
