@@ -21,8 +21,9 @@ machine_agent_access_key: ""             # REQUIRED - per environment, keep it i
 machine_agent_sim_enabled: true
 
 # Docker Visibility. Turned on only on hosts where the Docker socket
-# exists; there the agent user joins the socket's group (docker) and the
-# /hostroot -> / symlink is created. Elsewhere docker-enabled is false.
+# exists; there a systemd drop-in gives the agent process the socket's
+# group (SupplementaryGroups=docker) and /hostroot -> / is created.
+# Elsewhere docker-enabled is false.
 machine_agent_docker_enabled: true
 machine_agent_docker_socket: /var/run/docker.sock
 

@@ -40,6 +40,10 @@
     system: true
     create_home: false
     shell: /sbin/nologin
+    # No supplementary groups on the account itself: Docker socket
+    # access goes to the service only, through the systemd drop-in.
+    groups: ""
+    append: false
 
 # Docker Visibility only where Docker actually runs. With docker-enabled
 # on, the agent queries the Docker API at startup and exits if it cannot
@@ -56,16 +60,6 @@
          and machine_agent_docker_sock.stat.exists
          and (machine_agent_docker_sock.stat.issock | default(false))
          and machine_agent_docker_sock.stat.gr_name != 'root' }}
-
-# The socket is root:docker 0660. Membership in its group gives the
-# agent the Docker API - which is root-equivalent on the host.
-- name: Give the agent access to the Docker socket
-  ansible.builtin.user:
-    name: "{{ machine_agent_user }}"
-    groups: "{{ machine_agent_docker_sock.stat.gr_name }}"
-    append: true
-  when: machine_agent_docker_active | bool
-  notify: Restart machine agent
 
 - name: Create the base directory
   ansible.builtin.file:
@@ -191,6 +185,38 @@
         owner: root
         group: root
         mode: "0644"
+      notify: Restart machine agent
+
+    # The socket is root:docker 0660. SupplementaryGroups gives the
+    # socket's group to the agent process only, not to the appdynamics
+    # account - `sudo -u appdynamics` stays without Docker access.
+    - name: Create the drop-in directory
+      ansible.builtin.file:
+        path: "/etc/systemd/system/{{ machine_agent_service }}.service.d"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      when: machine_agent_docker_active | bool
+
+    - name: Give the agent process access to the Docker socket
+      ansible.builtin.copy:
+        content: |
+          # {{ ansible_managed }}
+          [Service]
+          SupplementaryGroups={{ machine_agent_docker_sock.stat.gr_name }}
+        dest: "/etc/systemd/system/{{ machine_agent_service }}.service.d/docker.conf"
+        owner: root
+        group: root
+        mode: "0644"
+      when: machine_agent_docker_active | bool
+      notify: Restart machine agent
+
+    - name: Remove the Docker drop-in where Docker Visibility is off
+      ansible.builtin.file:
+        path: "/etc/systemd/system/{{ machine_agent_service }}.service.d/docker.conf"
+        state: absent
+      when: not (machine_agent_docker_active | bool)
       notify: Restart machine agent
 
     - name: Enable and start the machine agent

@@ -65,8 +65,10 @@ Mirrors the manual install from the ticket:
    `Group=` is set to `appdynamics` too if the unit has one. The rest of
    the unit is kept as shipped. The role fails if the shipped unit has
    no line to set.
-7. on hosts with `/var/run/docker.sock`: adds `appdynamics` to the
-   socket's group (`docker`) and creates the `/hostroot -> /` symlink
+7. on hosts with `/var/run/docker.sock`: creates the `/hostroot -> /`
+   symlink and the drop-in
+   `appdynamics-machine-agent.service.d/docker.conf` with
+   `SupplementaryGroups=docker`
 8. `daemon-reload`, enables and starts `appdynamics-machine-agent`
 
 Changes to the bundle, `controller-info.xml` or the unit restart the
@@ -111,14 +113,16 @@ startup and exits with status 255 if it cannot - `SocketException:
 Permission denied` in `logs/machine-agent.log`. So the role turns it on
 per host:
 
-- socket present - `appdynamics` joins the socket's group, `/hostroot`
-  is created, `docker-enabled` is `true`
-- no socket - `docker-enabled` is `false`, nothing else changes
+- socket present - drop-in with `SupplementaryGroups=docker`,
+  `/hostroot` is created, `docker-enabled` is `true`
+- no socket - `docker-enabled` is `false`, the drop-in is removed
 
-Membership in the `docker` group is root-equivalent: anything running
-as `appdynamics` can start a privileged container. That is the access
-Docker Visibility needs; set `machine_agent_docker_enabled: false` to
-opt a host or group out.
+The `docker` group goes to the agent process through the systemd
+drop-in, not to the `appdynamics` account: the account has no
+supplementary groups (the role enforces that), so `sudo -u appdynamics`
+gets no Docker access. The agent process itself still has the Docker
+API, which is root-equivalent - that is what Docker Visibility needs.
+Set `machine_agent_docker_enabled: false` to opt a host or group out.
 
 ## Upgrades
 
