@@ -200,11 +200,8 @@
       when: machine_agent_docker_active | bool
 
     - name: Give the agent process access to the Docker socket
-      ansible.builtin.copy:
-        content: |
-          # {{ ansible_managed }}
-          [Service]
-          SupplementaryGroups={{ machine_agent_docker_sock.stat.gr_name }}
+      ansible.builtin.template:
+        src: docker.conf.j2
         dest: "/etc/systemd/system/{{ machine_agent_service }}.service.d/docker.conf"
         owner: root
         group: root

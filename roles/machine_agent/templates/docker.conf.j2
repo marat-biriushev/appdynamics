@@ -1,0 +1,3 @@
+# {{ ansible_managed }}
+[Service]
+SupplementaryGroups={{ machine_agent_docker_sock.stat.gr_name }}
