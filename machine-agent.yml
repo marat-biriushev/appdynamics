@@ -1,5 +1,6 @@
 ---
 - name: Install the AppDynamics Machine Agent
   hosts: appdynamics
+  become: true
   roles:
     - machine_agent

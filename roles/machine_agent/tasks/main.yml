@@ -22,10 +22,11 @@
     fail_msg: "Bundle not found: {{ machine_agent_bundle }}"
   run_once: true
 
-- name: Install unzip
-  ansible.builtin.package:
-    name: unzip
-    state: present
+# unzip is part of the base RHEL image here; check instead of installing,
+# so the role does not depend on a package repository.
+- name: Check that unzip is installed
+  ansible.builtin.command: unzip -v
+  changed_when: false
 
 - name: Create the appdynamics group
   ansible.builtin.group:
