@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<controller-info>
+    <controller-host>{{ machine_agent_controller_host }}</controller-host>
+    <controller-port>{{ machine_agent_controller_port }}</controller-port>
+    <controller-ssl-enabled>{{ machine_agent_controller_ssl | bool | lower }}</controller-ssl-enabled>
+    <account-name>{{ machine_agent_account_name }}</account-name>
+    <account-access-key>{{ machine_agent_access_key }}</account-access-key>
+    <unique-host-id>{{ machine_agent_unique_host_id }}</unique-host-id>
+    <sim-enabled>{{ machine_agent_sim_enabled | bool | lower }}</sim-enabled>
+</controller-info>

@@ -1,0 +1,26 @@
+---
+machine_agent_version: "26.8.0.5560"
+
+# The bundle zip on the control node. Download it once and drop it into
+# files/ next to the playbook - the servers do not need internet access.
+machine_agent_bundle: "{{ playbook_dir }}/files/machineagent-bundle-64bit-linux-{{ machine_agent_version }}.zip"
+
+machine_agent_user: appdynamics
+machine_agent_group: appdynamics
+machine_agent_base_dir: /opt/appdynamics
+machine_agent_home: "{{ machine_agent_base_dir }}/machine-agent"
+machine_agent_java_home: "{{ machine_agent_home }}/jre"
+machine_agent_service: appdynamics-machine-agent
+
+# Controller
+machine_agent_controller_host: appd-prd-app01.ipa.ipotekabank.uz
+machine_agent_controller_port: 443
+machine_agent_controller_ssl: true
+machine_agent_account_name: customer1
+machine_agent_access_key: ""             # REQUIRED - per environment, keep it in ansible-vault
+machine_agent_sim_enabled: true
+
+# Must match `hostname` on the server, case included. nodename is what
+# `hostname` / `uname -n` print; ansible_hostname would cut it at the
+# first dot.
+machine_agent_unique_host_id: "{{ ansible_facts['nodename'] }}"

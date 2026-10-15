@@ -1,0 +1,3 @@
+# The agent bundle is ~100 MB - keep it out of git.
+files/*.zip
+*.retry

@@ -1,0 +1,162 @@
+---
+- name: Check that the access key is provided
+  ansible.builtin.assert:
+    that:
+      - machine_agent_access_key | length > 0
+    fail_msg: >-
+      machine_agent_access_key must be set - it differs per environment
+      (ESB-DEV / ESB-TEST / ESB-PROD). Keep it in ansible-vault.
+
+- name: Check that the bundle is on the control node
+  ansible.builtin.stat:
+    path: "{{ machine_agent_bundle }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: machine_agent_bundle_stat
+
+- name: Fail if the bundle is missing
+  ansible.builtin.assert:
+    that:
+      - machine_agent_bundle_stat.stat.exists
+    fail_msg: "Bundle not found: {{ machine_agent_bundle }}"
+  run_once: true
+
+- name: Install unzip
+  ansible.builtin.package:
+    name: unzip
+    state: present
+
+- name: Create the appdynamics group
+  ansible.builtin.group:
+    name: "{{ machine_agent_group }}"
+    system: true
+
+- name: Create the appdynamics user
+  ansible.builtin.user:
+    name: "{{ machine_agent_user }}"
+    group: "{{ machine_agent_group }}"
+    system: true
+    create_home: false
+    shell: /sbin/nologin
+
+- name: Create the base directory
+  ansible.builtin.file:
+    path: "{{ machine_agent_base_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Check whether the agent is already installed
+  ansible.builtin.stat:
+    path: "{{ machine_agent_home }}"
+  register: machine_agent_home_stat
+
+- name: Create the install directory
+  ansible.builtin.file:
+    path: "{{ machine_agent_home }}"
+    state: directory
+    owner: "{{ machine_agent_user }}"
+    group: "{{ machine_agent_group }}"
+    mode: "0755"
+
+# --check on a fresh host: there is no user, no directory and no bundle
+# to read the unit from, so the rest cannot be previewed.
+- name: Stop the dry run here - the agent is not installed yet
+  ansible.builtin.meta: end_host
+  when: ansible_check_mode and not machine_agent_home_stat.stat.exists
+
+# The zip has no top-level directory - bin/, conf/, jre/ ... land
+# straight in machine_agent_home. The per-version marker makes this a one-off;
+# bumping machine_agent_version unpacks the new bundle over the old one.
+- name: Unpack the bundle
+  ansible.builtin.unarchive:
+    src: "{{ machine_agent_bundle }}"
+    dest: "{{ machine_agent_home }}"
+    owner: "{{ machine_agent_user }}"
+    group: "{{ machine_agent_group }}"
+    creates: "{{ machine_agent_home }}/.bundle-{{ machine_agent_version }}"
+  register: machine_agent_unpack
+  notify: Restart machine agent
+
+- name: Mark the bundle version as unpacked  # noqa: no-handler
+  ansible.builtin.copy:
+    content: "{{ machine_agent_version }}\n"
+    dest: "{{ machine_agent_home }}/.bundle-{{ machine_agent_version }}"
+    owner: "{{ machine_agent_user }}"
+    group: "{{ machine_agent_group }}"
+    mode: "0644"
+  when: machine_agent_unpack is changed
+
+- name: Apply ownership to the install directory
+  ansible.builtin.file:
+    path: "{{ machine_agent_home }}"
+    state: directory
+    recurse: true
+    owner: "{{ machine_agent_user }}"
+    group: "{{ machine_agent_group }}"
+
+# On a fresh host in --check the bundle is not unpacked, so there is
+# nothing to configure yet.
+- name: Configure the agent
+  when: not (ansible_check_mode and machine_agent_unpack is changed)
+  block:
+    # Mode 0640 - the file holds the access key. The bundle upgrade
+    # overwrites it; this task puts it back.
+    - name: Deploy controller-info.xml
+      ansible.builtin.template:
+        src: controller-info.xml.j2
+        dest: "{{ machine_agent_home }}/conf/controller-info.xml"
+        owner: "{{ machine_agent_user }}"
+        group: "{{ machine_agent_group }}"
+        mode: "0640"
+        backup: true
+      notify: Restart machine agent
+
+    # Same as `cp .../etc/systemd/system/appdynamics-machine-agent.service
+    # /etc/systemd/system/`, with the three lines forced to our values.
+    # Everything else in the unit stays as shipped.
+    - name: Read the systemd unit shipped with the bundle
+      ansible.builtin.slurp:
+        src: "{{ machine_agent_home }}/etc/systemd/system/{{ machine_agent_service }}.service"
+      register: machine_agent_unit_src
+
+    - name: Set the unit values
+      ansible.builtin.set_fact:
+        machine_agent_unit: >-
+          {{ machine_agent_unit_src.content | b64decode
+             | regex_replace('(?m)^#?\s*Environment=\"?MACHINE_AGENT_HOME=.*$',
+                             'Environment=MACHINE_AGENT_HOME=' ~ machine_agent_home)
+             | regex_replace('(?m)^#?\s*Environment=\"?JAVA_HOME=.*$',
+                             'Environment=JAVA_HOME=' ~ machine_agent_java_home)
+             | regex_replace('(?m)^#?\s*User=.*$',
+                             'User=' ~ machine_agent_user)
+             | regex_replace('(?m)^#?\s*Group=.*$',
+                             'Group=' ~ machine_agent_group) }}
+
+    - name: Check that the unit carries the expected values
+      ansible.builtin.assert:
+        that:
+          - machine_agent_unit is search('(?m)^Environment=MACHINE_AGENT_HOME=' ~ machine_agent_home ~ '$')
+          - machine_agent_unit is search('(?m)^Environment=JAVA_HOME=' ~ machine_agent_java_home ~ '$')
+          - machine_agent_unit is search('(?m)^User=' ~ machine_agent_user ~ '$')
+        fail_msg: >-
+          The shipped unit has no MACHINE_AGENT_HOME / JAVA_HOME / User line
+          to set. Check {{ machine_agent_home }}/etc/systemd/system/{{ machine_agent_service }}.service.
+
+    - name: Install the systemd unit
+      ansible.builtin.copy:
+        content: "{{ machine_agent_unit }}"
+        dest: "/etc/systemd/system/{{ machine_agent_service }}.service"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart machine agent
+
+    - name: Enable and start the machine agent
+      ansible.builtin.systemd:
+        name: "{{ machine_agent_service }}"
+        state: started
+        enabled: true
+        daemon_reload: true
