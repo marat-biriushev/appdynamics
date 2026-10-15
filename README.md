@@ -51,7 +51,8 @@ Mirrors the manual install from the ticket:
 3. creates `/opt/appdynamics/machine-agent` owned by `appdynamics`
 4. unpacks the bundle there and chowns it to `appdynamics:appdynamics`
 5. writes `conf/controller-info.xml` (mode `0640`, holds the access
-   key); `unique-host-id` is the server's `hostname` output, case kept
+   key); `unique-host-id` is the server's `hostname` output, case kept,
+   and `docker-enabled` is on
 6. installs `/etc/systemd/system/appdynamics-machine-agent.service`
    from the unit shipped in the bundle, with these lines forced:
 
@@ -64,7 +65,9 @@ Mirrors the manual install from the ticket:
    `Group=` is set to `appdynamics` too if the unit has one. The rest of
    the unit is kept as shipped. The role fails if the shipped unit has
    no line to set.
-7. `daemon-reload`, enables and starts `appdynamics-machine-agent`
+7. creates the `/hostroot -> /` symlink Docker Visibility reads the
+   host through (when `machine_agent_docker_enabled` is true)
+8. `daemon-reload`, enables and starts `appdynamics-machine-agent`
 
 Changes to the bundle, `controller-info.xml` or the unit restart the
 agent. A second run changes nothing.
@@ -97,6 +100,7 @@ Then add `--ask-vault-pass` (or `--vault-password-file`) to the run.
 | `machine_agent_account_name` | `customer1` | |
 | `machine_agent_access_key` | `""` | **required**, vault |
 | `machine_agent_sim_enabled` | `true` | Server Visibility |
+| `machine_agent_docker_enabled` | `true` | Docker Visibility; also creates `/hostroot -> /` |
 | `machine_agent_unique_host_id` | `{{ ansible_facts['nodename'] }}` | same as `hostname`; not `ansible_hostname`, which drops the domain part |
 
 ## Upgrades

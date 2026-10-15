@@ -103,6 +103,18 @@
 - name: Configure the agent
   when: not (ansible_check_mode and machine_agent_unpack is changed)
   block:
+    # Same as `ln -s / /hostroot`. Fails rather than replacing anything
+    # if /hostroot already exists as a file or directory.
+    - name: Create the /hostroot symlink for Docker Visibility
+      ansible.builtin.file:
+        src: /
+        dest: /hostroot
+        state: link
+        owner: root
+        group: root
+      when: machine_agent_docker_enabled | bool
+      notify: Restart machine agent
+
     # Mode 0640 - the file holds the access key. The bundle upgrade
     # overwrites it; this task puts it back.
     - name: Deploy controller-info.xml

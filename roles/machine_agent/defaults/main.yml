@@ -20,6 +20,10 @@ machine_agent_account_name: customer1
 machine_agent_access_key: ""             # REQUIRED - per environment, keep it in ansible-vault
 machine_agent_sim_enabled: true
 
+# Docker Visibility. The agent reads the host filesystem through
+# /hostroot, so the role also creates the /hostroot -> / symlink.
+machine_agent_docker_enabled: true
+
 # Must match `hostname` on the server, case included. nodename is what
 # `hostname` / `uname -n` print; ansible_hostname would cut it at the
 # first dot.
