@@ -37,6 +37,7 @@ registered in the controller before moving to the next environment.
 |---|---|---|
 | `inventories/esb-dev.ini` | `esb_dev` | `inventories/group_vars/esb_dev/vault.yml` |
 | `inventories/esb-test.ini` | `esb_test` | `inventories/group_vars/esb_test/vault.yml` |
+| `inventories/esb-prod.ini` | `esb_prod` | `inventories/group_vars/esb_prod/vault.yml` |
 
 Each environment group is a child of `appdynamics`. Its `vars.yml` maps
 `machine_agent_access_key` to `vault_machine_agent_access_key`, which
