@@ -47,7 +47,7 @@ lives in the vaulted `vault.yml` next to it.
 
 Mirrors the manual install from the ticket:
 
-1. checks that `unzip` is present (it is not installed by the role)
+1. installs `unzip`, only on hosts where it is missing
 2. creates the `appdynamics` system group and user (`/sbin/nologin`,
    no home)
 3. creates `/opt/appdynamics/machine-agent` owned by `appdynamics`
