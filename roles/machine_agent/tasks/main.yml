@@ -30,10 +30,14 @@
   failed_when: false
   register: machine_agent_unzip
 
-- name: Install unzip where it is missing
-  ansible.builtin.dnf:
-    name: unzip
-    state: present
+# skip_if_unavailable: some hosts carry a broken extra repo (e.g. a
+# zabbix mirror path that 404s), which makes a plain dnf install fail
+# even though unzip itself is in BaseOS. The dnf module has no switch
+# for that, hence the command.
+- name: Install unzip where it is missing  # noqa: command-instead-of-module
+  ansible.builtin.command: dnf -y --setopt=skip_if_unavailable=True install unzip
+  args:
+    creates: /usr/bin/unzip
   when: machine_agent_unzip.rc != 0
 
 - name: Create the appdynamics group
